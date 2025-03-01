@@ -1,15 +1,23 @@
 use std::collections::HashMap;
+use std::fmt;
 
-fn main() {
-    let mut fs = FileSystem::new();
-
-    fs.create_file("/test/file1.txt", "Содержимое file1.txt").unwrap();
-    fs.create_file("/test/file2.txt", "Содержимое file2.txt").unwrap();
-    fs.create_file("/test/subdir/file3.txt", "Содержимое file3.txt").unwrap();
-    fs.create_file("/another_dir/file5.txt", "Содержимое file5.txt").unwrap();
-
-    println!("{:?}", fs)
+#[derive(Debug)]
+enum MyErrors {
+    BadPath,
+    BadDirectory,
 }
+
+impl fmt::Display for MyErrors {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MyErrors::BadPath => write!(f, "Bad path, check your spelling"),
+            MyErrors::BadDirectory => write!(f, "Is not a directory"),
+        }
+    }
+}
+
+impl std::error::Error for MyErrors {}
+
 #[derive(Debug)]
 enum Entry {
     File(String),
@@ -28,11 +36,11 @@ impl FileSystem {
         }
     }
 
-    fn create_file(&mut self, path: &str, content: &str) -> Result<(), String> {
+    fn create_file(&mut self, path: &str, content: &str) -> Result<(), MyErrors> {
         let parts: Vec<&str> = path.split('/').filter(|&part| !part.is_empty()).collect();
 
         if parts.is_empty() {
-            return Err("Invalid path".to_string());
+            return Err(MyErrors::BadPath);
         }
 
         let file_name = parts.last().unwrap().to_string();
@@ -43,7 +51,7 @@ impl FileSystem {
         Ok(())
     }
 
-    fn get_directory_mut(&mut self, path: &str) -> Result<&mut HashMap<String, Entry>, String> {
+    fn get_directory_mut(&mut self, path: &str) -> Result<&mut HashMap<String, Entry>, MyErrors> {
         let parts: Vec<&str> = path.split('/').filter(|&part| !part.is_empty()).collect();
         let mut current = &mut self.root;
 
@@ -55,14 +63,42 @@ impl FileSystem {
                     }
                     entries.get_mut(part).unwrap()
                 }
-                _ => return Err("Not a directory".to_string()),
+                _ => return Err(MyErrors::BadDirectory),
             };
         }
 
         if let Entry::Directory(dir) = current {
             Ok(dir)
         } else {
-            Err("Not a directory".to_string())
+            Err(MyErrors::BadDirectory)
         }
     }
+}
+
+fn main() {
+    let mut fs = FileSystem::new();
+
+    // Создаем файлы
+    match fs.create_file("/test/file1.txt", "Содержимое file1.txt") {
+        Ok(_) => println!("Файл создан"),
+        Err(e) => eprintln!("Ошибка создания: {}", e),
+    }
+
+    match fs.create_file("/test/file2.txt", "Содержимое file2.txt") {
+        Ok(_) => println!("Файл создан"),
+        Err(e) => eprintln!("Ошибка создания: {}", e),
+    }
+
+    match fs.create_file("/test/subdir/file3.txt", "Содержимое file3.txt") {
+        Ok(_) => println!("Файл создан"),
+        Err(e) => eprintln!("Ошибка создания: {}", e),
+    }
+
+    match fs.create_file("/another_dir/file5.txt", "Содержимое file5.txt") {
+        Ok(_) => println!("Файл создан"),
+        Err(e) => eprintln!("Ошибка создания: {}", e),
+    }
+
+    // Выводим содержимое файловой системы
+    println!("{:?}", fs);
 }
